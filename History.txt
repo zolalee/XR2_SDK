@@ -1,0 +1,19 @@
+History of the CM_SCA SDK
+-------------------------
+
+v1.01 Beta 1        2019-07-30 
+------------------------------
+- Added the new interface functions:
+    1)Get the PVC interface.
+	2)Get the voltage interface.
+- Clear the socket cache before sending data.
+- Change the Processing Mode of ECU from Serial to Parallel.
+- Some bugs were fixed.
+- Internal changes in code.
+
+
+v1.00               2019-04-15 
+------------------------------
+- First version.
+
+End of document
