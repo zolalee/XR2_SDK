@@ -17,7 +17,7 @@ unsigned short g_AxisNum = 0;
 bool g_StartGetPVCTimer = false;
 bool g_CloseGetPVCThread = false;
 pthread_t g_tid[ECU_COUNT];
-string g_EcuIp[ECU_COUNT] = {"192.168.0.100"};
+string g_EcuIp[ECU_COUNT] = {"192.168.0.101"};
 EcuRelatedInfo g_ecuRelatedInfo[ECU_COUNT];
 short g_PvcTimeoutCount = 0;
 ThreadParm g_ThreadParm[ECU_COUNT];
@@ -144,11 +144,11 @@ short CM_SCA_Controller::CM_InitController()
 
 	//
 	// SCACtrller.SendBrakeFalse();
-	SCACtrller.SendBrakeTrue();
+	//SCACtrller.SendBrakeTrue();
 
 	
 	// 开始GetPVC定时器
-	SCACtrller.CM_StartGetPVCTimer(true);
+	SCACtrller.CM_StartGetPVCTimer(false);
 
 	// 初始化完成sleep
 	sleep(3);
@@ -271,6 +271,7 @@ short CM_SCA_Controller::CM_Connect()
 	// 启动循环线程读取PVC的值，每个ECU（ip）对应一个线程
 	g_CloseGetPVCThread = false;
 	// ThreadParm threadParm[ECU_COUNT];
+
 	for (i = 0; i < ECU_COUNT; i++)
 	{
 		g_ThreadParm[i].IP = i;
@@ -679,7 +680,7 @@ short CM_SCA_Controller::CM_ChangeAxisID(short ID1, short ID2)
 	CommData.SendDataLen = 5;
 	memcpy(CommData.SendData, code, 4);
 	CommData.SendData[4] = ID2;
-	CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
+	//CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
 	rtn = CommSend(&CommData);
 	if (0 != rtn)
 	{
@@ -742,6 +743,8 @@ short CM_SCA_Controller::CM_SaveParm(short axis)
 		goto LABEL_EXIT;
 	}
 
+	
+
 LABEL_EXIT:
 	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Exit  CM_SCA_Controller::CM_SaveParm(%d)=%d", axis, rtn);
 	return ERR_NONE;
@@ -781,7 +784,7 @@ short CM_SCA_Controller::CM_Zeros(short axis, double value)
 		goto LABEL_EXIT;
 	}
 
-	if (val != HOMING_MODE)
+	if (val != HOMING_MODE&& val != CURRENT_MODE)
 	{
 		rtn = ERR_AXIS_ISNOT_HOMING_MODE;
 		goto LABEL_EXIT;
@@ -829,7 +832,7 @@ short CM_SCA_Controller::CM_GetSWVersion(char *version)
 		goto LABEL_EXIT;
 	}
 
-	// gcvt(CM_SCA_Controller_SDK_VERSION, 2, Version);
+	//gcvt(CM_SCA_Controller_SDK_VERSION, 2, Version);
 	sprintf(version, "%s", CM_SCA_CONTROLLER_SDK_VERSION);
 
 LABEL_EXIT:

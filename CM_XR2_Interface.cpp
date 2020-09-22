@@ -46,12 +46,20 @@ double g_ReductionRatio[] = {
 6,6,180/19};
 
 extern CM_SCA_Controller SCACtrller;
-
+int operateMode =1;
 /*---------------------------------------------------------------------------------------
 ------
 ------	Class
 ------
 ---------------------------------------------------------------------------------------*/
+short CM_XR2_Interface::CM_SetPIDParm(short joint, ConfigParm *parm)
+{
+    return SCACtrller.CM_SetConfigParm(joint,parm);
+}
+ short CM_XR2_Interface::CM_GetPIDParm(short joint, ConfigParm *parm)
+ {
+return SCACtrller.CM_GetConfigParm(joint,parm);
+ }
 short CM_XR2_Interface::CM_ConnectXR2()
 {
     return SCACtrller.CM_InitController();
@@ -86,7 +94,15 @@ short CM_XR2_Interface::CM_SetXR2SoftLimitStatus(long status)
     }
     return rtn;
 }
+short CM_XR2_Interface::CM_GetSoftLimitValue(short axis, double &NSoftLimit, double &PSoftLimit)
+{
+    return SCACtrller.CM_GetSoftLimitValue (axis,  NSoftLimit, PSoftLimit);
+}
 
+short CM_XR2_Interface::CM_SetSoftLimitValue(short axis, double NSoftLimit, double PSoftLimit)
+{
+return SCACtrller.CM_SetSoftLimitValue (axis,  NSoftLimit, PSoftLimit);
+}
 short CM_XR2_Interface::CM_ClearAllAlarm()
 {
     int i;
@@ -155,7 +171,10 @@ short CM_XR2_Interface::CM_SetJointCtrlMode(short joint, CtrlMode mode)
     return rtn;
 }
 
-
+short CM_XR2_Interface::CM_SetHoming(short joint)
+{
+ return SCACtrller.CM_SetHomingMode(joint);
+}
 
 short CM_XR2_Interface::CM_GetJointCtrlMode(short joint, long &CtrlMode)
 {
@@ -540,6 +559,9 @@ short CM_XR2_Interface::CM_GetJointPVC(short joint, double &pos, double &vel, do
         return ERR_INPUT_PARM;
     }
     rtn = SCACtrller.CM_GetProfilePVC(joint, dPos, dVel, dCur);
+ cout<<"the pos "<<joint<<" one circle PVCget ="<<dPos<<endl;
+ cout<<"the vel "<< joint <<" one circle PVCget ="<<dVel<<endl;
+ cout<<"the cul "<< joint <<"  one circle PVCget ="<<dCur<<endl;
     if (0 != rtn)
     {
         return rtn;
@@ -551,19 +573,36 @@ short CM_XR2_Interface::CM_GetJointPVC(short joint, double &pos, double &vel, do
     return rtn;
 }
 
+short CM_XR2_Interface::CM_joint_Zeros(short joint,double value)
+{
+        if (JointIsInvalid(joint))
+    {
+        return ERR_INPUT_PARM;
+    }
+    return SCACtrller.CM_Zeros(joint, value);
+}
 
+
+short CM_XR2_Interface::CM_Save_joint_Parm(short joint)
+{   
+        if (JointIsInvalid(joint))
+    {
+        return ERR_INPUT_PARM;
+    }
+    return SCACtrller.CM_SaveParm(joint);
+}
 CM_XR2_Interface::~CM_XR2_Interface()
 {
 }
 
 double CM_XR2_Interface::XR1Pos2SCAPos(double rad, double ratio)
 {
-    return ratio * rad / (2 * Pi);
+    return ratio * rad/(2 * Pi) ;
 }
 
 double CM_XR2_Interface::SCAPos2XR1Pos(double circle, double ratio)
 {
-    return 2 * Pi * circle / ratio;
+    return (2 * Pi)* circle / ratio;
 }
 
 double CM_XR2_Interface::XR1Vel2SCAVel(double rad_s, double ratio)

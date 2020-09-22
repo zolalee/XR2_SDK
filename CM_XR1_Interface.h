@@ -74,6 +74,7 @@ enum CtrlMode
     PrfVelCtrlMode,
     PosCtrlMode,
     PrfPosCtrlMode,
+
 };
 
 

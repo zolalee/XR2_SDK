@@ -10,7 +10,7 @@
 * or in any way altering the source code is strictly prohibited, unless the prior written consent
 * of Cloudminds Ltd. is obtained.
 *
-* Filename:       	CM_XR1_Interface.h
+* Filename:       	CM_XR2_Interface.h
 * Programmer:       Li Zola
 * Created:        	june 9th, 2020
 * Description:		SCA controller interface based on SCA SDK
@@ -72,6 +72,23 @@ class CM_XR2_Interface
 {
 public:
     
+ 
+     /*
+     * 函数说明: 设置机器人PID参数 
+     * 注意事项: 开始时执行
+     * 参数说明: 无
+     * 返回说明: 0 - 成功
+     *         其他 - 参照错误代码
+     */
+short CM_SetPIDParm(short joint, ConfigParm *parm);
+     /*
+     * 函数说明: 读取机器人PID参数 
+     * 注意事项: 无
+     * 参数说明: 无
+     * 返回说明: 0 - 成功
+     *         其他 - 参照错误代码
+     */
+short CM_GetPIDParm(short joint, ConfigParm *parm);
     /*
      * 函数说明: 初始化机器人
      * 注意事项: 程序最开始时执行
@@ -108,7 +125,27 @@ public:
      *         其他 - 参照错误代码
      */
     short CM_SetXR2SoftLimitStatus(long status);
-    
+     /*
+     * 函数说明：获取软限位
+     * 注意事项：需在轴初始化后执行，安全起见
+     * 参数说明：axis: 设定的轴号
+     *         NSoftLimit: 负限位
+     *         PSoftLimit: 正限位
+     * 返回说明：0 - 成功
+     *         其他 - 参照错误代码
+     */   
+   short  CM_GetSoftLimitValue(short axis, double &NSoftLimit, double &PSoftLimit);
+    /*
+     * 函数说明：设置软限位
+     * 注意事项：需在轴初始化后执行，安全起见，每次开机后需执行一次，
+     *         不会自动保存，需调用CM_SaveParm函数
+     * 参数说明：axis: 设定的轴号
+     *         NSoftLimit: 负限位
+     *         PSoftLimit: 正限位
+     * 返回说明：0 - 成功
+     *         其他 - 参照错误代码
+     */
+   short  CM_SetSoftLimitValue(short axis, double NSoftLimit, double PSoftLimit);  
     /*
      * 函数说明: 清楚所有关节的报警
      * 注意事项: 初始化后执行
@@ -136,6 +173,15 @@ public:
      *         其他 - 参照错误代码
      */
     short CM_SetJointCtrlMode(short joint, CtrlMode mode);
+     /*
+     * 函数说明：设置关节的homing
+     * 注意事项：需在轴初始化后执行，运动中不可执行
+     * 参数说明：axis： 设置的轴号
+     * 返回说明：0: 成功
+     **         其他: 参照错误代码
+     * Note: 之前是单个axis设置，现在是通过Group的方式一把设置
+     */
+    short CM_SetHoming(short joint);
     /*
      * 函数说明：设置所有关节的目标位置
      * 注意事项：初始化后，设置位置模式或prf位置模式后执行，单位：弧度
@@ -277,7 +323,10 @@ public:
      *         其他 - 参照错误代码
      */
     short CM_GetJointPVC(short joint, double &pos, double &vel, double &cur);
+    
+    short CM_joint_Zeros(short joint,double value);
 
+    short CM_Save_joint_Parm(short joint);
     //rad -> circle
     double XR1Pos2SCAPos(double rad, double ratio);
     //circle -> rad

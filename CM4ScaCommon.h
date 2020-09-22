@@ -35,13 +35,13 @@
 ------	instructions defines
 ------
 ---------------------------------------------------------------------------------------*/
-#define ECU_COUNT                               1      // ECU的个数
-#define AXIS_COUNT                              2      // Axis的个数
+#define ECU_COUNT                               1   // ECU的个数
+#define AXIS_COUNT                             1    // Axis的个数
 #define CYC_GET_PVC_TIME                        5000    // 定时器循环得到PVC的时间间隔(ms)
 #define PORT                                    2000    // 通讯端口号
 #define COMMUNICATION_TIME                      500000  // 通讯超时时间(us)
 #define COMMUNICATION_TIME_1                     10000  // 通讯超时时间(us)
-#define VELOCITY_RANGE                          6000
+#define VELOCITY_RANGE                          250
 #define SOFTLIMIT_THRESHOLD                     0.001
 #define RUNNING_VEL_THRESHOLD                   5
 #define CM_SCA_PULSE_NUM                        10000
@@ -180,8 +180,8 @@ enum MOTION_MODE
     VELLOCITY_MODE,             // 2, 速度模式
     POSITION_MODE,              // 3, 位置模式
     PROFILE_POSITION_MODE = 6,  // 6, profile位置模式
-    PROFILE_VELOCITY_MODE,      // 7, profile速度模式
-    HOMING_MODE,                // 8, homing模式
+    PROFILE_VELOCITY_MODE = 7,      // 7, profile速度模式
+    HOMING_MODE = 8,                // 8, homing模式
 };
 
 enum AXIS_STAUS
