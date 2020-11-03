@@ -13,7 +13,11 @@ extern unsigned short g_AxisNum;
 extern bool g_StartGetPVCTimer;
 extern string g_EcuIp[ECU_COUNT];
 extern EcuRelatedInfo g_ecuRelatedInfo[ECU_COUNT];
-
+union EndianWrap_U
+	{
+		float v;
+		char  c[4];
+	};
 //------------------------------------------------------------------
 
 // motion mode
@@ -375,7 +379,7 @@ short CM_SCA_Controller::CM_SetPosition(short axis, double pos)
 	CommData.SendCmd = CMD_SET_PROFILE_POSITION;
 	CommData.SendDataLen = 0x04;
 	Double2Fix(&CommData, pos);
-	CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
+	//CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
 
 	rtn = CommSend(&CommData);
 	if (rtn != 0)
@@ -485,7 +489,7 @@ short CM_SCA_Controller::CM_SetPosition(vector<short> axis, vector<double> pos)
 		CommData.SendCmd = CMD_SET_PROFILE_POSITION;
 		CommData.SendDataLen = 0x04;
 		Double2Fix(&CommData, pos.at(i));
-		CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
+		//CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
 		PackageCommSendData(&CommData);
 
 		memcpy(sendBuff + i * CommData.SendCharLen, CommData.SendChar, CommData.SendCharLen);
@@ -1102,7 +1106,7 @@ short CM_SCA_Controller::CM_SetVelocity(short axis, double vel)
 	CommData.SendDataLen = 0x04;
 	vel /= VELOCITY_RANGE;
 	Double2Fix(&CommData, vel);
-	CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
+	//(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
 
 	rtn = CommSend(&CommData);
 	if (rtn != 0)
@@ -1194,7 +1198,7 @@ short CM_SCA_Controller::CM_SetVelocity(vector<short> axis, vector<double> vel)
 		CommData.SendCmd = CMD_SET_PROFILE_VELOCITY;
 		CommData.SendDataLen = 0x04;
 		Double2Fix(&CommData, vel.at(i));
-		CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
+		//CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
 		PackageCommSendData(&CommData);
 
 		memcpy(sendBuff + i * CommData.SendCharLen, CommData.SendChar, CommData.SendCharLen);
@@ -1284,6 +1288,8 @@ short CM_SCA_Controller::CM_SetCurrent(short axis, double cur)
 	long value;
 	CommunicationData CommData;
 	short ip;
+	double CurrentPos_,CurrentVel_,CurrentCur_;
+	double NSoftLimit_, PSoftLimit_;
 	EcuRelatedInfo *p = NULL;
 	short index = AxisID2Index(axis);
 
@@ -1313,7 +1319,21 @@ short CM_SCA_Controller::CM_SetCurrent(short axis, double cur)
 		goto LABEL_EXIT;
 	}
 
-	// thread lock
+    // rtn=CM_GetProfilePVC(axis,CurrentPos_,CurrentVel_,CurrentCur_);
+	// {if (rtn !=0)
+	// {cout << "get the pvc failed  = "<< axis << endl; 
+	// goto LABEL_EXIT;}}
+	// rtn=CM_GetSoftLimitValue(axis,NSoftLimit_, PSoftLimit_);
+	// {if (rtn !=0)
+	// {cout << "get the softlimit failed  "<< endl; 
+	// goto LABEL_EXIT;}}
+	// if(CurrentPos_<=NSoftLimit_ || CurrentPos_>=PSoftLimit_)
+	// {
+	// 	rtn = CM_SetPositionMode(axis);
+	// 	cout << "the current position is out of  softlimit ,set current value failed  "<< endl; 
+	// 	goto LABEL_EXIT;
+	// }
+	//thread lock
 	pthread_mutex_lock(&p->mutexLock);
 
 	// 0x08
@@ -1321,9 +1341,10 @@ short CM_SCA_Controller::CM_SetCurrent(short axis, double cur)
 	CommData.SendAxis = (unsigned char)axis;
 	CommData.SendCmd = CMD_SET_PROFILE_CURRENT;
 	CommData.SendDataLen = 0x04;
-	cur /= g_MotionInfo[index].CurrentRange;
+	//cout << "CurrentRange "<<g_MotionInfo[index].CurrentRange<< endl;
+	//cur /= g_MotionInfo[index].CurrentRange;
 	Double2Fix(&CommData, cur);
-	CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
+	//CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
 
 	rtn = CommSend(&CommData);
 	if (rtn != 0)
@@ -1332,7 +1353,6 @@ short CM_SCA_Controller::CM_SetCurrent(short axis, double cur)
 		goto LABEL_EXIT;
 	}
 
-	if (IsFingerActuator(axis))
 	{
 		rtn = CommRtn(&CommData);
 		if (rtn != 0)
@@ -1407,7 +1427,7 @@ short CM_SCA_Controller::CM_SetCurrent(vector<short> axis, vector<double> cur)
 		CommData.SendCmd = CMD_SET_PROFILE_VELOCITY;
 		CommData.SendDataLen = 0x04;
 		Double2Fix(&CommData, cur.at(i));
-		CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
+		//CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
 		PackageCommSendData(&CommData);
 
 		memcpy(sendBuff + i * CommData.SendCharLen, CommData.SendChar, CommData.SendCharLen);
@@ -1484,7 +1504,7 @@ short CM_SCA_Controller::CM_SetHomingMode(short axis, int operateMode)
 
 	// set global variables
 	g_MotionInfo[index].MotionMode = HOMING_MODE;
-
+	cout<< "the homing sca id is"<<g_MotionInfo[index].ID<<endl;
 LABEL_EXIT:
 	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Exit  CM_SCA_Controller::CM_SetHomingMode(%d, %d)=%d", axis, operateMode, rtn);
 	return rtn;
@@ -1765,11 +1785,14 @@ LABEL_EXIT:
 
 short CM_SCA_Controller::CM_GetProfilePVC(short axis, double &pos, double &vel, double &cur)
 {
+	
+	 //cout<<" enter to get pvc"<<endl;
+
 	short rtn = ERR_NONE;
 	CommunicationData CommData;
-	long lPos = 0;
+	float lPos = 0;
 	short index;
-	short sVel = 0, sCur = 0;
+	float sVel = 0, sCur = 0;
 
 	// Notes: 因为这个会频繁调用，所以log level设置为CM4_LOG_LEVEL_DBG1
 	g_Log.writeLog(CM4_LOG_LEVEL_DBG1, "Enter CM_SCA_Controller::CM_GetProfilePVC(%d)", axis);
@@ -1792,54 +1815,95 @@ short CM_SCA_Controller::CM_GetProfilePVC(short axis, double &pos, double &vel, 
 		rtn = ERR_AXIS_IS_CLOSED;
 		goto LABEL_EXIT;
 	}
+ //cout<<"the index is "<<index<<endl;
 
-	// 从缓存中读取
-	if (m_bReadInfoFromBuff)
-	{
-		pos = g_MotionInfo[index].CurrentPos;
-		vel = g_MotionInfo[index].CurrentVel;
-		cur = g_MotionInfo[index].CurrentCur;
-		goto LABEL_EXIT;
-	}
+//	从缓存中读取
+	// if (m_bReadInfoFromBuff)
+	// {
+	// 	pos = g_MotionInfo[index].CurrentPos;
+	// 	vel = g_MotionInfo[index].CurrentVel;
+	// 	cur = g_MotionInfo[index].CurrentCur;
+	// 	goto LABEL_EXIT;
+	// }
 
 	memset(&CommData, 0, sizeof(CommunicationData));
 	CommData.SendAxis = (unsigned char)axis;
 	CommData.SendCmd = CMD_GET_PROFILE_PVC;
 	CommData.SendDataLen = 0x00;
+	//usleep(200);
 	rtn = CommProsses(&CommData);
+	//cout<<"CommProsses(&CommData)  is "<<rtn<<endl;
 	if (0 != rtn)
 	{
 		goto LABEL_EXIT;
 	}
+	
+ cout<<"CommData.RtnDataLen  is "<<int(CommData.RtnDataLen)<<endl;
 
-	if (CommData.RtnDataLen != 7)
+	if (CommData.RtnDataLen != 12)
 	{
+		//rtn = CommProsses(&CommData);
+		cout<<"enter the  CommData.RtnDataLen != 12"<<endl;
 		rtn = ERR_RTN_PARM;
 		goto LABEL_EXIT;
 	}
 
 	// 计算pos，vel， cur
-	lPos = (long)(CommData.RtnData[2]) * (long)(pow(2, 8));
-	lPos += (long)(CommData.RtnData[1]) * (long)(pow(2, 16));
-	lPos += (long)(CommData.RtnData[0]) * (long)(pow(2, 24));
+{
+EndianWrap_U w1,w2,w3;
+for (int i = 0; i < 4; i++)
+{
 
-	sVel = (short)(CommData.RtnData[4]) * (short)(pow(2, 0));
-	sVel += (short)(CommData.RtnData[3]) * (short)(pow(2, 8));
+w1.c[i]=CommData.RtnData[11-i];
+//data += (long)(CommData->RtnData[i ]) * (long)(pow(2, (8 *(i))));
+}
+pos = w1.v;
 
-	sCur = (short)(CommData.RtnData[6]) * (short)(pow(2, 0));
-	sCur += (short)(CommData.RtnData[5]) * (short)(pow(2, 8));
+for (int i = 0; i < 4; i++)
+{
 
-	pos = InvIQ24(lPos);
-	vel = InvIQ14(sVel);
-	cur = InvIQ14(sCur);
+w2.c[i]=CommData.RtnData[11-i-4];
+//data += (long)(CommData->RtnData[i ]) * (long)(pow(2, (8 *(i))));
+}
+vel = w2.v;
 
-	if ((short)CommData.RtnData[0] > 0x80)
-	{
-		pos -= 256;
-	}
+for (int i = 0; i < 4; i++)
+{
 
-	vel *= VELOCITY_RANGE;
-	cur *= g_MotionInfo[index].CurrentRange;
+w3.c[i]=CommData.RtnData[11-i-8];
+//data += (long)(CommData->RtnData[i ]) * (long)(pow(2, (8 *(i))));
+}
+cur = w3.v;
+}
+
+
+	// lPos = (long)(CommData.RtnData[8]) * (long)(pow(2, 0));
+	// lPos += (long)(CommData.RtnData[9]) * (long)(pow(2, 8));
+	// lPos += (long)(CommData.RtnData[10]) * (long)(pow(2, 16));
+	// lPos += (long)(CommData.RtnData[11]) * (long)(pow(2, 24));
+
+	// sVel = (short)(CommData.RtnData[4]) * (short)(pow(2, 0));
+	// sVel += (short)(CommData.RtnData[5]) * (short)(pow(2, 8));
+	// sVel += (short)(CommData.RtnData[6]) * (short)(pow(2, 16));
+	// sVel += (short)(CommData.RtnData[7]) * (short)(pow(2, 24));
+
+
+	// sCur = (short)(CommData.RtnData[0]) * (short)(pow(2, 0));
+	// sCur += (short)(CommData.RtnData[1]) * (short)(pow(2, 8));
+	// sCur += (short)(CommData.RtnData[2]) * (short)(pow(2, 16));
+	// sCur += (short)(CommData.RtnData[3]) * (short)(pow(2, 24));
+
+//	pos = InvIQ24(lPos);
+	// vel = InvIQ24(sVel);
+	// cur = InvIQ24(sCur);
+
+	// if ((short)CommData.RtnData[8] > 0x80)
+	// {
+	// 	pos -= 256;
+	// }
+
+	//vel *= VELOCITY_RANGE;
+	//cur *= g_MotionInfo[index].CurrentRange;
 
 LABEL_EXIT:
 	g_Log.writeLog(CM4_LOG_LEVEL_DBG1, "Enter CM_SCA_Controller::CM_GetProfilePVC(%d)=%d", axis, rtn);
@@ -1896,11 +1960,11 @@ short CM_SCA_Controller::CM_GetProfilePosition(short axis, double &value)
 		goto LABEL_EXIT;
 	}
 
-	if (m_bReadInfoFromBuff)
-	{
-		value = g_MotionInfo[index].CurrentPos;
-		goto LABEL_EXIT;
-	}
+	// if (m_bReadInfoFromBuff)
+	// {
+	// 	value = g_MotionInfo[index].CurrentPos;
+	// 	goto LABEL_EXIT;
+	// }
 
 	rtn = TransCommData(axis, CMD_GET_PROFILE_POSITION, 0x00, &value);
 	if (0 != rtn)
@@ -1957,11 +2021,11 @@ short CM_SCA_Controller::CM_GetProfileVelocity(short axis, double &value)
 		goto LABEL_EXIT;
 	}
 
-	if (m_bReadInfoFromBuff)
-	{
-		value = g_MotionInfo[index].CurrentVel;
-		goto LABEL_EXIT;
-	}
+	// if (m_bReadInfoFromBuff)
+	// {
+	// 	value = g_MotionInfo[index].CurrentVel;
+	// 	goto LABEL_EXIT;
+	// }
 
 	rtn = TransCommData(axis, CMD_GET_PROFILE_VELOCITY, 0x00, &value);
 	if (0 != rtn)
@@ -2024,18 +2088,18 @@ short CM_SCA_Controller::CM_GetCurrent(short axis, double &value)
 		goto LABEL_EXIT;
 	}
 
-	if (m_bReadInfoFromBuff)
-	{
-		value = g_MotionInfo[index].CurrentCur;
-		goto LABEL_EXIT;
-	}
+	// if (m_bReadInfoFromBuff)
+	// {
+	// 	value = g_MotionInfo[index].CurrentCur;
+	// 	goto LABEL_EXIT;
+	// }
 
 	rtn = TransCommData(axis, CMD_GET_PROFILE_CURRENT, 0x00, &value);
 	if (0 != rtn)
 	{
 		goto LABEL_EXIT;
 	}
-	value *= g_MotionInfo[index].CurrentRange;
+	//value *= g_MotionInfo[index].CurrentRange;
 
 LABEL_EXIT:
 	g_Log.writeLog(CM4_LOG_LEVEL_DBG1, "Exit  CM_SCA_Controller::CM_GetCurrent(%d, 0x%lf)=%d", axis, value, rtn);
@@ -2379,7 +2443,7 @@ short CM_SCA_Controller::CM_GetImuData(double &w, double &x, double &y, double &
 	CommData.SendCmd = CMD_GET_IMU_DATA;
 	CommData.SendDataLen = 0x01;
 	CommData.SendData[0] = 0x01;
-	CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
+	//CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
 
 	rtn = CommProsses(1, &CommData);
 	if (0 != rtn)

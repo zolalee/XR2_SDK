@@ -69,7 +69,11 @@ extern pthread_t g_tid[ECU_COUNT];
 extern string g_EcuIp[ECU_COUNT];
 extern EcuRelatedInfo g_ecuRelatedInfo[ECU_COUNT];
 extern short g_PvcTimeoutCount;
-
+	union EndianWrap_U
+	{
+		float v;
+		char  c[4];
+	};
 // private
 long CM_SCA_Controller::IQ8(double value)
 {
@@ -129,31 +133,49 @@ void CM_SCA_Controller::Fix2Double(CommunicationData *CommData, double &value)
 	long data = 0;
 
 	value = 0;
-
+if(CommData->RtnDataLen ==4)
+{
+	EndianWrap_U w1;
 	for (i = 0; i < CommData->RtnDataLen; i++)
 	{
-		data += (long)(CommData->RtnData[CommData->RtnDataLen - 1 - i]) * (long)(pow(2, (8 * i)));
-	}
 
-	switch (CommData->RtnDataLen)
-	{
-	case 1:
-		value = data;
-		break;
-	case 2:
-		value = InvIQ8(data);
-		break;
-	case 4:
-		value = InvIQ24(data);
-		break;
-	default:
-		break;
+		w1.c[i]=CommData->RtnData[CommData->RtnDataLen-1-i ];
+		//data += (long)(CommData->RtnData[i ]) * (long)(pow(2, (8 *(i))));
+		
 	}
+	value = w1.v;
+	}
+	
+if(CommData->RtnDataLen ==1)
+{
+	
+	data = (long)(CommData->RtnData[0]) ;
+	value = data;
+	//  if ((short)CommData->RtnData[0] > 0x80)
+	//  {
+	//  	value -= 256;
+	//  }
+}
 
-	if ((short)CommData->RtnData[0] > 0x80)
-	{
-		value -= 256;
-	}
+	// switch (CommData->RtnDataLen)
+	// {
+	// case 1:
+	// 	value = data;
+	// 	break;
+	// case 2:
+	// 	value = InvIQ8(data);
+	// 	break;
+	// case 4:
+	// 	value = InvIQ24(data);
+	// 	break;
+	// default:
+	// 	break;
+	// }
+
+	// if ((short)CommData->RtnData[0] > 0x80)
+	// {
+	// 	value -= 256;
+	// }
 }
 
 void CM_SCA_Controller::Double2Fix(CommunicationData *CommData, double &value)
@@ -162,35 +184,54 @@ void CM_SCA_Controller::Double2Fix(CommunicationData *CommData, double &value)
 	int j;
 	long data;
 	long temp;
+	 EndianWrap_U w2;
+	// w2.v = value;
+	// for (i = 0; i < CommData->RtnDataLen; i++)
+	// {
+	// 	CommData->SendData[i] = w2.c[i];
+	// }
+	// switch (CommData->SendDataLen)
+	// {
+	// case 1:
+	// 	data = value;
+	// 	break;
+	// case 2:
+	// 	data = IQ8(value);
+	// 	break;
+	// case 4:
+	// 	data = IQ24(value);
+	// 	break;
+	// default:
+	// 	break;
+	// }
+	// temp = abs(data);
 
-	switch (CommData->SendDataLen)
-	{
-	case 1:
+	// for (i = 0; i < CommData->SendDataLen; i++)
+	// {
+	// 	j = CommData->SendDataLen - 1 - i;
+	// 	if (data >= 0)
+	// 	{
+	// 		CommData->SendData[i] = temp / (long)(pow(2, (8 * j)));
+	// 	}
+	// 	else
+	// 	{
+	// 		CommData->SendData[i] = 255 - temp / (long)(pow(2, (8 * j)));
+	// 	}
+	// 	temp %= (long)(pow(2, (8 * j)));
+	// }
+	if(CommData->SendDataLen == 1){
 		data = value;
-		break;
-	case 2:
-		data = IQ8(value);
-		break;
-	case 4:
-		data = IQ24(value);
-		break;
-	default:
-		break;
+		CommData->SendData[0]= data;
 	}
-	temp = abs(data);
-
-	for (i = 0; i < CommData->SendDataLen; i++)
+	if (CommData->SendDataLen == 4)
 	{
-		j = CommData->SendDataLen - 1 - i;
-		if (data >= 0)
-		{
-			CommData->SendData[i] = temp / (long)(pow(2, (8 * j)));
-		}
-		else
-		{
-			CommData->SendData[i] = 255 - temp / (long)(pow(2, (8 * j)));
-		}
-		temp %= (long)(pow(2, (8 * j)));
+	 w2.v = value;
+	 for (i = 0; i < CommData->SendDataLen; i++)
+	 {
+	 	CommData->SendData[i] = w2.c[CommData->SendDataLen-i-1];
+		// CommData->SendData[i] = w2.c[i];
+		 //printf(" the CommData->SendData[i] = %x\n",CommData->SendData[i]) ;
+	 }
 	}
 }
 
@@ -252,6 +293,7 @@ short CM_SCA_Controller::CommSend(CommunicationData *CommData)
 	}
 
 	// 清空当前socket缓存
+//	if(CommData->SendCmd =CMD_GET_PROFILE_PVC)
 	CleanSocketBuff(p->serverFd);
 
 	// 发送命令
@@ -261,13 +303,16 @@ short CM_SCA_Controller::CommSend(CommunicationData *CommData)
 		rtn = ERR_COMMUNICATION_SENDTO;
 		goto LABEL_EXIT;
 	}
-
+//	 if(CommData->RtnDataLen !=12)
+	 //CleanSocketBuff(p->serverFd);
 	rtn = 0;
 
 LABEL_EXIT:
 	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Exit  CM_SCA_Controller::CommSend()=%d", rtn);
 	return rtn;
 }
+
+
 
 short CM_SCA_Controller::PackageCommSendData(CommunicationData *CommData)
 {
@@ -284,51 +329,69 @@ short CM_SCA_Controller::PackageCommSendData(CommunicationData *CommData)
 	memcpy(CommData->SendChar + 4, &CommData->SendDataLen, 1);
 	Datalen = (int)CommData->SendDataLen;
 
-	switch (Datalen)
+	if (Datalen == 0)
 	{
-	case 0:
 		CommData->SendChar[5] = 0xED;
 		CommData->SendCharLen = 6;
-		break;
-	case 1:
-		memcpy(CommData->SendChar + 5, &CommData->SendData, 1);
-		//memcpy(CommData->SendChar + 6, &CommData->SendCrc, 2);
-		//CommData->SendChar[8] = 0xED;
-		CommData->SendChar[6] = 0xED;
-		CommData->SendCharLen = 7;
-		break;
-	case 2:
-		memcpy(CommData->SendChar + 5, &CommData->SendData, 2);
-		//CRC16_1(CommData->SendData, 2, CommData->SendCrc);
-		//memcpy(CommData->SendChar + 7, &CommData->SendCrc, 2);
-		CommData->SendChar[7] = 0xED;
-		CommData->SendCharLen = 8;
-		break;
-	case 3:
-		memcpy(CommData->SendChar + 5, &CommData->SendData, 3);
-		//CRC16_1(CommData->SendData, 2, CommData->SendCrc);
-		//memcpy(CommData->SendChar + 9, &CommData->SendCrc, 2);
-		CommData->SendChar[8] = 0xED;
-		CommData->SendCharLen = 9;
-		break;
-	case 4:
-		memcpy(CommData->SendChar + 5, &CommData->SendData, 4);
-		//CRC16_1(CommData->SendData, 2, CommData->SendCrc);
-		//memcpy(CommData->SendChar + 10, &CommData->SendCrc, 2);
-		CommData->SendChar[9] = 0xED;
-		CommData->SendCharLen = 10;
-		break;
-	case 5:
-		memcpy(CommData->SendChar + 5, &CommData->SendData, 5);
-		//CRC16_1(CommData->SendData, 2, CommData->SendCrc);
-		//memcpy(CommData->SendChar + 10, &CommData->SendCrc, 2);
-		CommData->SendChar[10] = 0xED;
-		CommData->SendCharLen = 11;
-		break;		
-	default:
-		rtn = ERR_INPUT_PARM;
 	}
+	else if (0 < Datalen && Datalen <= 10)
+	{
+		memcpy(CommData->SendChar + 5, &CommData->SendData, Datalen);
+		//memcpy(CommData->SendChar + 5 + Datalen, &CommData->SendCrc, 2);
+		CommData->SendChar[5+Datalen] = 0xED;
+		CommData->SendCharLen = 6+Datalen;
+	}
+	else 
+	{
+		rtn = ERR_INPUT_PARM;
+	}	
 
+
+	// switch (Datalen)
+	// {
+	// case 0:
+	// 	CommData->SendChar[5] = 0xED;
+	// 	CommData->SendCharLen = 6;
+	// 	break;
+	// case 1:
+	// 	memcpy(CommData->SendChar + 5, &CommData->SendData, 1);
+	// 	memcpy(CommData->SendChar + 6, &CommData->SendCrc, 2);
+	// 	CommData->SendChar[8] = 0xED;
+	// 	CommData->SendChar[6] = 0xED;
+	// 	CommData->SendCharLen = 7;
+	// 	break;
+	// case 2:
+	// 	memcpy(CommData->SendChar + 5, &CommData->SendData, 2);
+	// 	CRC16_1(CommData->SendData, 2, CommData->SendCrc);
+	// 	memcpy(CommData->SendChar + 7, &CommData->SendCrc, 2);
+	// 	CommData->SendChar[7] = 0xED;
+	// 	CommData->SendCharLen = 8;
+	// 	break;
+	// case 3:
+	// 	memcpy(CommData->SendChar + 5, &CommData->SendData, 3);
+	// 	CRC16_1(CommData->SendData, 2, CommData->SendCrc);
+	// 	memcpy(CommData->SendChar + 9, &CommData->SendCrc, 2);
+	// 	CommData->SendChar[8] = 0xED;
+	// 	CommData->SendCharLen = 9;
+	// 	break;
+	// case 4:
+	// 	memcpy(CommData->SendChar + 5, &CommData->SendData, 4);
+	// 	CRC16_1(CommData->SendData, 2, CommData->SendCrc);
+	// 	memcpy(CommData->SendChar + 10, &CommData->SendCrc, 2);
+	// 	CommData->SendChar[9] = 0xED;
+	// 	CommData->SendCharLen = 10;
+	// 	break;
+	// case 5:
+	// 	memcpy(CommData->SendChar + 5, &CommData->SendData, 5);
+	// 	CRC16_1(CommData->SendData, 2, CommData->SendCrc);
+	// 	memcpy(CommData->SendChar + 10, &CommData->SendCrc, 2);
+	// 	CommData->SendChar[10] = 0xED;
+	// 	CommData->SendCharLen = 11;
+	// 	break;		
+	// default:
+	// 	rtn = ERR_INPUT_PARM;
+	// }
+	//printf("commdata = %c", CommData->SendAxis);
 	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Exit  CM_SCA_Controller::PackageCommSendData()=%d", rtn);
 	return rtn;
 }
@@ -393,35 +456,55 @@ short CM_SCA_Controller::CommRtn(CommunicationData *CommData)
 	// 得到当前的ip和ecu信息
 	ip = g_MotionInfo[index].IP;
 	p = &g_ecuRelatedInfo[ip];
+	//cout << "the p->serverFd = " << p->serverFd<<endl;
+	// if(CommData->SendCmd ==CMD_GET_PROFILE_PVC)
+	// CleanSocketBuff(p->serverFd);
 
-	FD_ZERO(&readFd);			  //初始化readfd
-	FD_SET(p->serverFd, &readFd); //把server_fd加入readfd
+	// FD_ZERO(&readFd);			  //初始化readfd
+	// FD_SET(p->serverFd, &readFd); //把server_fd加入readfd
 
-	g_Timeout.tv_sec = 0;
-	g_Timeout.tv_usec = COMMUNICATION_TIME;
-	result = select(p->serverFd + 1, &readFd, NULL, NULL, &g_Timeout);
-	if (result <= 0)
+	// g_Timeout.tv_sec = 0;
+	// g_Timeout.tv_usec = COMMUNICATION_TIME;
+	// result = select(p->serverFd + 1, &readFd, NULL, NULL, &g_Timeout);
+	// if (result <= 0)
+	// {
+	// 	rtn = ERR_WAITTING_TIMEOUT;
+	// 	goto LABEL_EXIT;
+	// }
 	{
-		rtn = ERR_WAITTING_TIMEOUT;
-		goto LABEL_EXIT;
-	}
-
 	rtn = recvfrom(p->serverFd, &CommData->RtnChar, 64, 0, (sockaddr *)&tempClientAddr, &p->addrLen);
+	
+	// while(((int)CommData->RtnDataLen==0) &&CommData->SendCmd ==CMD_GET_PROFILE_PVC)
+	// {
+
+	// 	cout << "test for axis = "<<int(CommData->SendAxis)<<endl;
+	// 	rtn = recvfrom(p->serverFd, &CommData->RtnChar, 64, 0, (sockaddr *)&tempClientAddr, &p->addrLen);
+	// cout << "the CommData->RtnChar = " << CommData->RtnChar<<endl;
+	// cout << "CommData->RtnDataLen = " <<int(CommData->RtnDataLen)<<endl;}
 	if (rtn <= 0)
 	{
 		rtn = ERR_COMMUNICATION_RECVFROM;
 		goto LABEL_EXIT;
 	}
-
+}
+	/*---------------------for fix the pvc get buff timing --------------------*/
+	// if(CommData->SendCmd == CMD_GET_PROFILE_PVC){
+	// if ((int)CommData->RtnDataLen !=12)
+	// CleanSocketBuff(p->serverFd);
+	// }
+	/*---------------------end for fix the pvc get buff timing --------------------*/
+	
 	memcpy(&CommData->RtnAxis, CommData->RtnChar + 1, 1);
 	memcpy(&CommData->RtnCmd, CommData->RtnChar + 2, 1);
+	memset(CommData->RtnChar + 3, 0, 1);
 	memcpy(&CommData->RtnDataLen, CommData->RtnChar + 4, 1);
 	//Datalen = strtol((char *)CommData->RtnDataLen, NULL,10);
 	Datalen = (int)CommData->RtnDataLen;
+	//cout << "the CommData->RtnDataLen= " << CommData->RtnDataLen<<endl;
 	memcpy(&CommData->RtnData, CommData->RtnChar + 5, Datalen);
 	if (0xED != (int)CommData->RtnChar[5 + Datalen])
 	{
-		memcpy(&CommData->RtnCrc, CommData->RtnChar + 5 + Datalen, 2);
+		//memcpy(&CommData->RtnCrc, CommData->RtnChar + 5 + Datalen, 2);
 	}
 
 	rtn = 0;
@@ -430,6 +513,7 @@ LABEL_EXIT:
 	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Exit  CM_SCA_Controller::CommRtn()=%d", rtn);
 	return rtn;
 }
+
 
 short CM_SCA_Controller::CommRtn(short ip, CommunicationData *CommData)
 {
@@ -464,13 +548,14 @@ short CM_SCA_Controller::CommRtn(short ip, CommunicationData *CommData)
 
 	memcpy(&CommData->RtnAxis, CommData->RtnChar + 1, 1);
 	memcpy(&CommData->RtnCmd, CommData->RtnChar + 2, 1);
+	memset(CommData->RtnChar + 3, 0, 1);
 	memcpy(&CommData->RtnDataLen, CommData->RtnChar + 4, 1);
 	//Datalen = strtol((char *)CommData->RtnDataLen, NULL,10);
 	Datalen = (int)CommData->RtnDataLen;
 	memcpy(&CommData->RtnData, CommData->RtnChar + 5, Datalen);
 	if (0xED != (int)CommData->RtnChar[5 + Datalen])
 	{
-		memcpy(&CommData->RtnCrc, CommData->RtnChar + 5 + Datalen, 2);
+		//memcpy(&CommData->RtnCrc, CommData->RtnChar + 5 + Datalen, 2);
 	}
 
 	rtn = 0;
@@ -495,19 +580,90 @@ short CM_SCA_Controller::RtnCheck(CommunicationData *CommData)
 	}
 	if (0xED != CommData->RtnChar[5 + (int)CommData->RtnDataLen])
 	{
-		CRC16_1(CommData->RtnData, CommData->RtnDataLen, crc);
-		for (i = 0; i < 2; i++)
-		{
-			if (crc[i] != CommData->RtnCrc[i])
-			{
-				rtn = ERR_RTN_PARM_CRC;
-				goto LABEL_EXIT;
-			}
-		}
+		//CRC16_1(CommData->RtnData, CommData->RtnDataLen, crc);
+		// for (i = 0; i < 2; i++)
+		// {
+		// 	if (crc[i] != CommData->RtnCrc[i])
+		// 	{
+		// 		rtn = ERR_RTN_PARM_CRC;
+		// 		goto LABEL_EXIT;
+		// 	}
+		// }
 	}
 
 LABEL_EXIT:
 	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Exit  CM_SCA_Controller::RtnCheck()=%d", rtn);
+	return rtn;
+}
+
+short CM_SCA_Controller::CommProsses_pvc(CommunicationData *CommData)
+{
+	short rtn = ERR_NONE;
+	short axis = 0, ip = 0;
+	EcuRelatedInfo *p_pvc = NULL;
+	short index;
+
+	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Enter CM_SCA_Controller::CommProsses()");
+
+	axis = (short)CommData->SendAxis;
+	index = AxisID2Index(axis);
+	if (-1 == index)
+	{
+		rtn = ERR_AXIS_NO_FOUND;
+		goto LABEL_EXIT;
+	}
+
+	ip = g_MotionInfo[index].IP;
+	p_pvc = &g_ecuRelatedInfo[ip];
+
+	// thread lock
+	pthread_mutex_lock(&p_pvc->mutexLock);
+
+	//test
+	// timeval timeStart, timeEnd;
+	// double TimeVal=0;
+	// gettimeofday(&timeStart, NULL);
+	//end
+
+
+	rtn = CommSend(CommData);
+	//cout<<"CommSend(CommData) = "<<rtn<<endl;
+	if (0 != rtn)
+	{
+		pthread_mutex_unlock(&p_pvc->mutexLock);
+		goto LABEL_EXIT;
+	}
+	
+	rtn = CommRtn(CommData);
+	//cout<<"CommRtn(CommData) = "<<rtn<<endl;
+	if (0 != rtn)
+	{
+		pthread_mutex_unlock(&p_pvc->mutexLock);
+		goto LABEL_EXIT;
+	}
+
+	//test
+	// gettimeofday( &timeEnd, NULL);
+	// TimeVal = (timeEnd.tv_sec - timeStart.tv_sec)*1000000 + (double)(timeEnd.tv_usec -timeStart.tv_usec);
+	// //if(TimeVal > 1000)
+	// {
+	// 	printf("timeval is %f\n", TimeVal);
+	// }
+	//end
+
+	// rtn check
+	// rtn = RtnCheck(CommData);
+	// if (0 != rtn)
+	// {
+	// 	pthread_mutex_unlock(&p->mutexLock);
+	// 	rtn = ERR_RTN_PARM;
+	// 	goto LABEL_EXIT;
+	// }
+
+	pthread_mutex_unlock(&p_pvc->mutexLock);
+
+LABEL_EXIT:
+	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Exit  CM_SCA_Controller::CommProsses()=%d", rtn);
 	return rtn;
 }
 
@@ -541,12 +697,14 @@ short CM_SCA_Controller::CommProsses(CommunicationData *CommData)
 	//end
 
 	rtn = CommSend(CommData);
+	//cout<<"CommSend(CommData) = "<<rtn<<endl;
 	if (0 != rtn)
 	{
 		pthread_mutex_unlock(&p->mutexLock);
 		goto LABEL_EXIT;
 	}
 	rtn = CommRtn(CommData);
+	//cout<<"CommRtn(CommData) = "<<rtn<<endl;
 	if (0 != rtn)
 	{
 		pthread_mutex_unlock(&p->mutexLock);
@@ -563,13 +721,13 @@ short CM_SCA_Controller::CommProsses(CommunicationData *CommData)
 	//end
 
 	// rtn check
-	rtn = RtnCheck(CommData);
-	if (0 != rtn)
-	{
-		pthread_mutex_unlock(&p->mutexLock);
-		rtn = ERR_RTN_PARM;
-		goto LABEL_EXIT;
-	}
+	// rtn = RtnCheck(CommData);
+	// if (0 != rtn)
+	// {
+	// 	pthread_mutex_unlock(&p->mutexLock);
+	// 	rtn = ERR_RTN_PARM;
+	// 	goto LABEL_EXIT;
+	// }
 
 	pthread_mutex_unlock(&p->mutexLock);
 
@@ -577,6 +735,7 @@ LABEL_EXIT:
 	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Exit  CM_SCA_Controller::CommProsses()=%d", rtn);
 	return rtn;
 }
+
 
 short CM_SCA_Controller::CommProsses(short ip, CommunicationData *CommData)
 {
@@ -604,12 +763,12 @@ short CM_SCA_Controller::CommProsses(short ip, CommunicationData *CommData)
 	}
 
 	// rtn check
-	rtn = RtnCheck(CommData);
-	if (0 != rtn)
-	{
-		pthread_mutex_unlock(&p->mutexLock);
-		goto LABEL_EXIT;
-	}
+	// rtn = RtnCheck(CommData);
+	// if (0 != rtn)
+	// {
+	// 	pthread_mutex_unlock(&p->mutexLock);
+	// 	goto LABEL_EXIT;
+	// }
 
 	pthread_mutex_unlock(&p->mutexLock);
 
@@ -653,11 +812,11 @@ short CM_SCA_Controller::TransCommData(short axis, short cmd, short DataLen, dou
 		goto LABEL_EXIT;
 	}
 
-	if (!(short)CommData.RtnData[0])
-	{
-		rtn = ERR_EXECT;
-		goto LABEL_EXIT;
-	}
+	// if (!(short)CommData.RtnData[0])
+	// {
+	// 	rtn = ERR_EXECT;
+	// 	goto LABEL_EXIT;
+	// }
 
 LABEL_EXIT:
 	g_Log.writeLog(CM4_LOG_LEVEL_INFO, "Exit  CM_SCA_Controller::TransCommData(%d, 0x%x, %d, %lf)=%d", axis, cmd, DataLen, data, rtn);
@@ -676,7 +835,7 @@ short CM_SCA_Controller::TransCommDataThruIP(short ip, short axis, short cmd, sh
 	CommData.SendCmd = (unsigned char)cmd;
 	CommData.SendDataLen = (unsigned char)DataLen;
 	Double2Fix(&CommData, data);
-	CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
+	//CRC16_1(&CommData.SendData[0], (short)CommData.SendDataLen, CommData.SendCrc);
 	rtn = CommProsses(ip, &CommData);
 	if (rtn != 0)
 	{
@@ -1229,7 +1388,7 @@ void CM_SCA_Controller::CleanSocketBuff(int sock)
 		res = select(FD_SETSIZE, &read_fds, NULL, NULL, &time_out);
 		if (res == 0)
 			break;						   //数据读取完毕，缓存区清空成功
-		len = recv(sock_conn, recv_data, 23, 0); //触发数据读取
+		len = recv(sock_conn, recv_data, 24, 0); //触发数据读取
 	}
 }
 
@@ -1253,6 +1412,8 @@ short CM_SCA_Controller::InitEcuRelatedInfo()
 
 		// 创建socket对象
 		p->serverFd = socket(AF_INET, SOCK_DGRAM, 0);
+
+		//p->serverFd = socket(AF_INET, SOCK_STREAM, 0);
 		if (-1 == p->serverFd)
 		{
 			rtn = ERR_CREATE_SOCKET;
@@ -1428,22 +1589,22 @@ void *CM_SCA_Controller::TimerGetPVC(void *parm)
 		//end
 
 		// tbd: for test
-		if ((ip == 2) || (ip == 3))
-		{
-			if (nSwitch == 0)
-			{
-				pThis->GetEcuAxisPVC2(ip, CMD_GET_PROFILE_POSITION);
-			}
-			else if (nSwitch == 3)
-			{
-				pThis->GetEcuAxisPVC2(ip, CMD_GET_PROFILE_CURRENT);
-			}
+		// if ((ip == 2) || (ip == 3))
+		// {
+		// 	if (nSwitch == 0)
+		// 	{
+		// 		pThis->GetEcuAxisPVC2(ip, CMD_GET_PROFILE_POSITION);
+		// 	}
+		// 	else if (nSwitch == 3)
+		// 	{
+		// 		pThis->GetEcuAxisPVC2(ip, CMD_GET_PROFILE_CURRENT);
+		// 	}
 
-			nSwitch++;
-			if (nSwitch > 4)
-				nSwitch = 0;
-		}
-		else
+		// 	nSwitch++;
+		// 	if (nSwitch > 4)
+		// 		nSwitch = 0;
+		// }
+		// else
 		{
 			pThis->GetEcuAxisPVC2(ip, CMD_GET_PROFILE_PVC);
 		}
@@ -1470,7 +1631,7 @@ void *CM_SCA_Controller::TimerGetPVC(void *parm)
 			{
 				g_PvcTimeoutCount = 0;
 			}
-			cout << "No. " << g_PvcTimeoutCount << ", TimeVal = " << TimeVal << ", IP = " << ip << endl;
+			//cout << "No. " << g_PvcTimeoutCount << ", TimeVal = " << TimeVal << ", IP = " << ip << endl;
 		}
 	}
 
@@ -1624,7 +1785,7 @@ short CM_SCA_Controller::GetEcuAxisPVC(unsigned short ip)
 		memcpy(&CommData.RtnData, CommData.RtnChar + 5, Datalen);
 		if (0xED != (int)CommData.RtnChar[5 + Datalen])
 		{
-			memcpy(&CommData.RtnCrc, CommData.RtnChar + 5 + Datalen, 2);
+			//memcpy(&CommData.RtnCrc, CommData.RtnChar + 5 + Datalen, 2);
 		}
 
 		// 解析返回的data
@@ -1785,7 +1946,7 @@ short CM_SCA_Controller::GetEcuAxisPVC2(unsigned short ip, unsigned char cmd)
 		memcpy(&CommData.RtnData, CommData.RtnChar + 5, Datalen);
 		if (0xED != (int)CommData.RtnChar[5 + Datalen])
 		{
-			memcpy(&CommData.RtnCrc, CommData.RtnChar + 5 + Datalen, 2);
+			//memcpy(&CommData.RtnCrc, CommData.RtnChar + 5 + Datalen, 2);
 		}
 
 		// 解析返回的data
@@ -1799,6 +1960,8 @@ short CM_SCA_Controller::GetEcuAxisPVC2(unsigned short ip, unsigned char cmd)
 			g_Log.writeLog(CM4_LOG_LEVEL_ERROR, logIP, "*** CM_SCA_Controller::GetEcuAxisPVC(%d)=%d, i = %d", ip, rtn, i);
 			// goto LABEL_EXIT;
 		}
+		//printf("the CommData.RtnCmd  is %d \n", CommData.RtnCmd);
+		//printf("CommData.RtnDataLen is %d  \n", CommData.RtnDataLen);
 
 		if (CommData.RtnCmd == CMD_GET_PROFILE_POSITION)
 		{
@@ -1812,7 +1975,7 @@ short CM_SCA_Controller::GetEcuAxisPVC2(unsigned short ip, unsigned char cmd)
 		}
 		else if (CommData.RtnCmd == CMD_GET_PROFILE_PVC)
 		{
-			if (CommData.RtnDataLen != 7)
+			if (CommData.RtnDataLen != 12)
 			{
 				// tbd: 这些错误，是否应该只是打印log就好
 				// pthread_mutex_unlock(&p->mutexLock);
@@ -1821,30 +1984,58 @@ short CM_SCA_Controller::GetEcuAxisPVC2(unsigned short ip, unsigned char cmd)
 				g_Log.writeLog(CM4_LOG_LEVEL_ERROR, logIP, "*** CM_SCA_Controller::GetEcuAxisPVC(%d)=%d, CommData.RtnDataLen = %d", ip, rtn, CommData.RtnDataLen);
 			}
 
-			lPos = (long)(CommData.RtnData[2]) * (long)(pow(2, 8));
-			lPos += (long)(CommData.RtnData[1]) * (long)(pow(2, 16));
-			lPos += (long)(CommData.RtnData[0]) * (long)(pow(2, 24));
+			// lPos = (long)(CommData.RtnData[2]) * (long)(pow(2, 8));
+			// lPos += (long)(CommData.RtnData[1]) * (long)(pow(2, 16));
+			// lPos += (long)(CommData.RtnData[0]) * (long)(pow(2, 24));
 
-			sVel = (short)(CommData.RtnData[4]) * (short)(pow(2, 0));
-			sVel += (short)(CommData.RtnData[3]) * (short)(pow(2, 8));
-			sCur = (short)(CommData.RtnData[6]) * (short)(pow(2, 0));
-			sCur += (short)(CommData.RtnData[5]) * (short)(pow(2, 8));
+			// sVel = (short)(CommData.RtnData[4]) * (short)(pow(2, 0));
+			// sVel += (short)(CommData.RtnData[3]) * (short)(pow(2, 8));
+			// sCur = (short)(CommData.RtnData[6]) * (short)(pow(2, 0));
+			// sCur += (short)(CommData.RtnData[5]) * (short)(pow(2, 8));
 
-			pos = InvIQ24(lPos);
-			vel = InvIQ14(sVel);
-			cur = InvIQ14(sCur);
+			// pos = InvIQ24(lPos);
+			// vel = InvIQ14(sVel);
+			// cur = InvIQ14(sCur);
 
-			if ((short)CommData.RtnData[0] > 0x80)
-			{
-				pos -= 256;
-			}
+			// if ((short)CommData.RtnData[0] > 0x80)
+			// {
+			// 	pos -= 256;
+			// }
+{
+EndianWrap_U w1,w2,w3;
+for (int i = 0; i < 4; i++)
+{
 
-			vel *= VELOCITY_RANGE;
-			cur *= g_MotionInfo[index].CurrentRange;
+w1.c[i]=CommData.RtnData[11-i];
+//data += (long)(CommData->RtnData[i ]) * (long)(pow(2, (8 *(i))));
+}
+pos = w1.v;
+
+for (int i = 0; i < 4; i++)
+{
+
+w2.c[i]=CommData.RtnData[11-i-4];
+//data += (long)(CommData->RtnData[i ]) * (long)(pow(2, (8 *(i))));
+}
+vel = w2.v;
+
+for (int i = 0; i < 4; i++)
+{
+
+w3.c[i]=CommData.RtnData[11-i-8];
+//data += (long)(CommData->RtnData[i ]) * (long)(pow(2, (8 *(i))));
+}
+cur = w3.v;
+}
+			//vel *= VELOCITY_RANGE;
+			//cur *= g_MotionInfo[index].CurrentRange;
 
 			g_MotionInfo[index].CurrentPos = pos;
 			g_MotionInfo[index].CurrentVel = vel;
 			g_MotionInfo[index].CurrentCur = cur;
+			cout << "the motioninfo pos  = " << pos << endl;
+			cout << "the motioninfo vel  = " << vel << endl;
+			cout << "the motioninfo cur  = " << cur << endl;
 		}
 	}
 

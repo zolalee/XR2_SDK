@@ -135,7 +135,7 @@ struct CommunicationData
     unsigned char SendCmd;      //发送的指令
     unsigned char SendDataLen;  //发送的指令长度
     unsigned char SendData[5];  //发送的数据
-    unsigned char SendCrc[2];   //发送的crc校验
+    //unsigned char SendCrc[2];   //发送的crc校验
     unsigned char SendChar[32]; //发送的字符串
     unsigned int SendCharLen;
 
@@ -148,7 +148,7 @@ struct CommunicationData
     // unsigned char RtnChar[32]; //返回的字符串
 
     unsigned char RtnData[32];  //返回的数据
-    unsigned char RtnCrc[2];   //返回的crc校验
+    //unsigned char RtnCrc[2];   //返回的crc校验
     unsigned char RtnChar[64]; //返回的字符串
 
     unsigned int RtnCharLen;
@@ -1070,6 +1070,7 @@ private:
     short CommSend(CommunicationData *CommData);
     short CommRtn(CommunicationData *CommData);
     short CommProsses(CommunicationData *CommData);
+     short CommProsses_pvc(CommunicationData *CommData);   
 
     short CommSend(short ip, CommunicationData *CommData);
     short CommRtn(short ip, CommunicationData *CommData);
